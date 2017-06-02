@@ -19,7 +19,7 @@ namespace Microsoft.Extensions.Logging
         public static LoggerFactory AddAzureWebAppDiagnostics(this LoggerFactory factory)
         {
             return AddAzureWebAppDiagnostics(factory, new AzureAppServicesDiagnosticsSettings());
-        }
+        }      
 
         /// <summary>
         /// Adds an Azure Web Apps diagnostics logger.

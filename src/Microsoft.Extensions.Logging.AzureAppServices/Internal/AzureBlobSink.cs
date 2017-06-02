@@ -74,7 +74,7 @@ namespace Microsoft.Extensions.Logging.AzureAppServices.Internal
             foreach (var eventGroup in eventGroups)
             {
                 var key = eventGroup.Key;
-                var blobName = $"{_appName}/{key.Item1}/{key.Item2:00}/{key.Item3:00}/{key.Item4:00}/{_fileName}";
+                var blobName = $"{_appName}/{key.Year}/{key.Month:00}/{key.Day:00}/{key.Hour:00}/{_fileName}";
 
                 var blob = _blobReferenceFactory(blobName);
 
@@ -100,9 +100,9 @@ namespace Microsoft.Extensions.Logging.AzureAppServices.Internal
             }
         }
 
-        private Tuple<int,int,int,int> GetBlobKey(LogEvent e)
+        private (int Year, int Month, int Day, int Hour) GetBlobKey(LogEvent e)
         {
-            return Tuple.Create(e.Timestamp.Year,
+            return (e.Timestamp.Year,
                 e.Timestamp.Month,
                 e.Timestamp.Day,
                 e.Timestamp.Hour);

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -19,6 +18,15 @@ namespace Microsoft.Extensions.Logging.AzureAppServices
 
         protected override async Task WriteMessagesAsync(string message)
         {
+            try
+            {
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
             using (var fileStream = File.OpenWrite(_fileName))
             {
                 using (var streamWriter = new StreamWriter(fileStream))
@@ -29,18 +37,31 @@ namespace Microsoft.Extensions.Logging.AzureAppServices
         }
     }
 
-    abstract class BatchingLogger: IDisposable
+    abstract class BatchingLogger: IDisposable, ILogger
     {
-        StringBuilder _builder = new StringBuilder();
-        private TimeSpan _interval;
+        private readonly StringBuilder _builder = new StringBuilder();
+        private readonly TimeSpan _interval;
 
-        BlockingCollection<string> _messageQueue = new BlockingCollection<string>(new ConcurrentQueue<string>(), 1000);
-        private Task _outputTask;
-        private CancellationTokenSource _cancellationTokenSource;
+        private readonly BlockingCollection<string> _messageQueue;
+        private readonly Task _outputTask;
+        private readonly CancellationTokenSource _cancellationTokenSource;
+        private readonly int? _batchSize;
 
-        public BatchingLogger()
+        protected BatchingLogger(TimeSpan interval, int? batchSize, int queueSizeLimit)
         {
+            if (queueSizeLimit == 0)
+            {
+                _messageQueue = new BlockingCollection<string>(new ConcurrentQueue<string>());
+            }
+            else
+            {
+                _messageQueue = new BlockingCollection<string>(new ConcurrentQueue<string>(), queueSizeLimit);
+            }
+
+            _interval = interval;
+            _batchSize = batchSize;
             _cancellationTokenSource = new CancellationTokenSource();
+            _messageQueue = new BlockingCollection<string>(new ConcurrentQueue<string>());
             _outputTask = Task.Factory.StartNew(
                 ProcessLogQueue,
                 null,
@@ -65,14 +86,25 @@ namespace Microsoft.Extensions.Logging.AzureAppServices
         {
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
-                while (_messageQueue.TryTake(out var message))
+                var limit = _batchSize ?? int.MaxValue;
+
+                while (_messageQueue.TryTake(out var message) && limit > 0)
                 {
                     _builder.Append(message);
+                    limit--;
                 }
 
                 if (_builder.Length > 0)
                 {
-                    await WriteMessagesAsync(_builder.ToString());
+                    try
+                    {
+                        await WriteMessagesAsync(_builder.ToString());
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+
                     _builder.Clear();
                 }
 
@@ -91,6 +123,21 @@ namespace Microsoft.Extensions.Logging.AzureAppServices
             }
             catch (TaskCanceledException) { }
             catch (AggregateException ex) when (ex.InnerExceptions.Count == 1 && ex.InnerExceptions[0] is TaskCanceledException) { }
+        }
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public IDisposable BeginScope<TState>(TState state)
+        {
+            return null;
         }
     }
 }
