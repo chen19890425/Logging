@@ -18,15 +18,6 @@ namespace Microsoft.Extensions.Logging.AzureAppServices
 
         protected override async Task WriteMessagesAsync(string message)
         {
-            try
-            {
-
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
-            }
             using (var fileStream = File.OpenWrite(_fileName))
             {
                 using (var streamWriter = new StreamWriter(fileStream))
@@ -127,7 +118,15 @@ namespace Microsoft.Extensions.Logging.AzureAppServices
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
-            throw new NotImplementedException();
+            // "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level}] {Message}{NewLine}";
+            var builder = new StringBuilder();
+            builder.Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff zzz"));
+            builder.Append(" [");
+            builder.Append(logLevel.ToString());
+            builder.Append("] ");
+            builder.AppendLine(formatter(state, exception));
+
+            _messageQueue.Add(builder.ToString());
         }
 
         public bool IsEnabled(LogLevel logLevel)
